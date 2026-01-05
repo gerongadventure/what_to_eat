@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>今天吃什么大逃杀</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        /* --- 基础样式 --- */
+        :root { --bg: #fdf6ec; --primary: #ff9a9e; }
+        body { background: var(--bg); font-family: sans-serif; text-align: center; padding: 20px; }
+        h1 { color: var(--primary); }
+        .arena { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; max-width: 600px; margin: 0 auto 80px auto; }
+        
+        .card {
+            background: #fff; border-radius: 12px; padding: 15px 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05); font-weight: bold;
+            transition: transform 0.3s; cursor: pointer; position: relative;
+        }
+
+        /* --- ✨ 随机消失特效库 ✨ --- */
+        
+        /* 特效1: 炸飞 (向各个方向炸裂并消失) */
+        @keyframes explode {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5) rotate(15deg); opacity: 0.8; filter: contrast(200%); }
+            100% { transform: scale(2); opacity: 0; filter: blur(10px); }
+        }
+        .fx-explode { animation: explode 0.5s forwards; }
+
+        /* 特效2: 掉落深渊 (向下掉落并变透明) */
+        @keyframes dropDown {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(100px) rotate(-20deg); opacity: 0; }
+        }
+        .fx-drop { animation: dropDown 0.6s forwards; }
+
+        /* 特效3: 甚至没来得及告别 (像素化收缩) */
+        @keyframes shrink {
+            0% { transform: scale(1); }
+            100% { transform: scale(0); opacity: 0; }
+        }
+        .fx-shrink { animation: shrink 0.4s ease-in forwards; }
+
+        /* 特效4: 灵魂出窍 (向上飘走) */
+        @keyframes ghost {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-50px); opacity: 0; filter: grayscale(100%); }
+        }
+        .fx-ghost { animation: ghost 0.8s ease-out forwards; }
+
+        /* 赢家样式 */
+        .winner { transform: scale(1.3) !important; border: 3px solid var(--primary); z-index: 10; background: #fff5f5; }
+
+        /* 按钮 */
+        button {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            padding: 15px 40px; border-radius: 50px; border: none;
+            background: var(--primary); color: white; font-size: 1.2rem;
+            box-shadow: 0 5px 15px rgba(255, 154, 158, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <h1>🔪 美食大逃杀</h1>
+    <div class="arena" id="arena">Loading...</div>
+    <button onclick="startBattle()" id="btn">开始处刑</button>
+
+    <script>
+        let cards = [];
+        const effects = ['fx-explode', 'fx-drop', 'fx-shrink', 'fx-ghost']; // 特效池
+
+        // 1. 读取外部 JSON 文件
+        async function loadData() {
+            try {
+                // 注意：本地直接双击 html 打开通常会拦截 fetch，需要部署后才能生效（见下文）
+                const response = await fetch('data.json'); 
+                const data = await response.json();
+                renderCards(data);
+            } catch (error) {
+                document.getElementById('arena').innerHTML = "⚠️ 请将文件部署到服务器或 GitHub Pages 以加载数据";
+                console.error(error);
+            }
+        }
+
+        function renderCards(data) {
+            const arena = document.getElementById('arena');
+            arena.innerHTML = '';
+            cards = [];
+            data.forEach((item, i) => {
+                const div = document.createElement('div');
+                div.className = 'card';
+                div.innerHTML = `${item.icon} ${item.name}`;
+                arena.appendChild(div);
+                cards.push(div);
+            });
+        }
+
+        // 2. 随机特效逻辑
+        function startBattle() {
+            const btn = document.getElementById('btn');
+            btn.disabled = true;
+            // 重新加载数据（为了重置样式）
+            const aliveCards = Array.from(document.querySelectorAll('.card'));
+            
+            // 递归淘汰
+            let speed = 200;
+            function killOne() {
+                if (aliveCards.length === 1) {
+                    aliveCards[0].classList.add('winner');
+                    btn.innerText = "决定是你了！";
+                    btn.disabled = false;
+                    return;
+                }
+
+                // 随机选一个倒霉蛋
+                const rIndex = Math.floor(Math.random() * aliveCards.length);
+                const victim = aliveCards[rIndex];
+                
+                // 随机选一种死法
+                const rEffect = effects[Math.floor(Math.random() * effects.length)];
+                victim.classList.add(rEffect);
+
+                // 从存活数组移除
+                aliveCards.splice(rIndex, 1);
+
+                // 减速逻辑
+                speed += (cards.length - aliveCards.length) * 20;
+                setTimeout(killOne, speed);
+            }
+            killOne();
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
